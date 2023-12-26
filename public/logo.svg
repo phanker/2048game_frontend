@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Chicken Head Outline -->
+  <path d="M 30,50 Q 20,30 35,20 Q 60,10 75,35 Q 80,50 75,65 Q 60,90 35,80 Q 20,70 30,50 Z" fill="#ffca28"/>
+  <!-- Beak -->
+  <polygon points="75,35 100,40 75,45" fill="#ffa726"/>
+  <!-- Eye -->
+  <circle cx="60" cy="40" r="4" fill="#000"/>
+  <!-- Comb -->
+  <path d="M 35,20 Q 25,10 15,20 T 5,20" fill="#d32f2f"/>
+</svg>
