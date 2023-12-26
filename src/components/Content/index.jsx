@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import Game2048, { Direction, Game2048Tile } from "../../components/Game2048";
+import Game2048, { Direction } from "../../components/Game2048";
 import Tile from "../../components/Tile";
 import SoundManager from "../../components/SoundManager";
-import StateManager from "../../components/StateManager";
 import VibratorManager from "../../components/VibratorManager";
 import {
   useCurrentWallet,
@@ -46,11 +45,12 @@ function coverToState(detailInfos) {
 }
 
 const PACKAGE_ID =
-  "0x64eda0258562329e2eb996d93b16758f200ea406c2bede0949806c5af05c8ea9";
+  // "0x64eda0258562329e2eb996d93b16758f200ea406c2bede0949806c5af05c8ea9";
+  "0x1eec93f137f760b5428966571b6c5c109eed4328ece8d86b05ba8294fa390ddb";
 const MODULE_NAME = "game_2048";
 const weather_object_id =
-  "0xa705f6a72f08298c817f16b8e23564a68fc304538c42c9b76af7b85167c1e79c";
-// "0x1aedcca0b67b891c64ca113fce87f89835236b4c77294ba7e2db534ad49a58dc"; //mainnet
+  // "0xa705f6a72f08298c817f16b8e23564a68fc304538c42c9b76af7b85167c1e79c";
+  "0x1aedcca0b67b891c64ca113fce87f89835236b4c77294ba7e2db534ad49a58dc"; //mainnet
 const SEND_FUNCTION_NAME = "new_game";
 const MOVE_FUNCTION_NAME = "move_tile";
 
@@ -73,10 +73,10 @@ export default function Content(props) {
   const containerRef = useRef(null);
 
   const vibratorManager = new VibratorManager();
-  const stateManager = new StateManager();
 
   const [gameId, setGameId] = useState();
-  // stateManager.getGameId() ? stateManager.getGameId() : ""
+
+  const [isFirstConnect, setIsFirstConnect] = useState(true);
 
   const {
     data: objectData,
@@ -134,7 +134,7 @@ export default function Content(props) {
         id,
         isgameOver,
         score: parseInt(score, 10), // 将字符串类型的score转换为数字
-        tiles, // 假设您想保留tiles的完整结构
+        tiles, // 保留tiles的完整结构
         won,
       };
     });
@@ -184,6 +184,7 @@ export default function Content(props) {
 
   useEffect(() => {
     setTiles(tilesData._tiles);
+
     if (tilesData._tiles && tilesData._tiles.length > 1) {
       changeStateFun({
         logoPulse: true,
@@ -201,35 +202,30 @@ export default function Content(props) {
       setGameId();
     }
 
-    // if (newestGameId) {
-
-    // }
     if (!gameId) {
       setGameId(newestGameId);
     }
 
-    changeStateFun({
-      score: tilesData.score,
-      best: allGamesData && allGamesData.length > 0 ? allGamesData[0].score : 0,
-    });
-
-    // if (gameId == null) {
-    //   if (allGamesData && allGamesData.length > 0) {
-    //     setGameId(allGamesData[0].id);
-    //   }
-    // }
-
     window.addEventListener("keydown", _moveK);
-
-    console.log(gameRef.current);
     if (!gameRef.current) {
       initGame();
     }
+    if (tilesData.won) {
+      gameRef.current._options.on2048(tilesData.isgameOver);
+    }
+    if (tilesData.isgameOver && !tilesData.won) {
+      gameRef.current._options.onGameOver();
+    }
+
+    gameRef.current._options.onScoreAdd(
+      tilesData.score ? tilesData.score : 0,
+      allGamesData && allGamesData.length > 0 ? allGamesData[0].score : 0
+    );
+
     const hammer = new Hammer.Manager(containerRef.current, {
       recognizers: [[Hammer.Pan]],
     });
     hammer.on("panstart", (event) => _moveG(event.direction));
-    // _tryResumeGame();
     // 清理函数
     return () => {
       window.removeEventListener("keydown", _moveK);
@@ -242,6 +238,17 @@ export default function Content(props) {
       toast("请先连接钱包，再开始游戏。");
       return;
     }
+
+    if (tilesData.isgameOver) {
+      toast("游戏已经结束，请再来一局！。");
+      return;
+    }
+
+    if (tilesData.won) {
+      toast("游戏已经胜利，请再来一局！。");
+      return;
+    }
+
     if (
       gameRef.current != null &&
       !messageVisible &&
@@ -250,6 +257,7 @@ export default function Content(props) {
       !event.metaKey
     ) {
       const key = event.key.toLowerCase();
+
       let flag = true;
       if (key === "arrowup" || key === "w") {
         move(Direction.Up);
@@ -320,24 +328,6 @@ export default function Content(props) {
     );
   };
 
-  const _tryResumeGame = () => {
-    const { best, score, game } = stateManager.getState();
-    // setBest(best);
-    changeStateFun({ best, score });
-    // setScore(score);
-    if (game) {
-      setMessageVisible(false);
-    }
-    if (game != null) {
-      // @ts-ignore
-      window.gtag("event", "resume_game", {
-        score: props.score,
-        best: props.best,
-      });
-      _createGame(game);
-    }
-  };
-
   const _newGame = (event) => {
     if (!isConnected) {
       toast("请连接钱包后，创建新游戏!");
@@ -350,7 +340,6 @@ export default function Content(props) {
     txb.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::${SEND_FUNCTION_NAME}`,
       arguments: [txb.object(weather_object_id)],
-      // typeArguments: [SUI_TYPE_ARG],
     });
     txb.setSender(currentAccount?.address);
     signAndExecuteTransactionBlock(
@@ -406,9 +395,9 @@ export default function Content(props) {
         }
         firstUpdate = false;
       },
-      onScoreAdd: (value) => {
+      onScoreAdd: (value, best) => {
         changeStateFun({
-          best: Math.max(value, props.best),
+          best: Math.max(value, best),
           score: value,
           scoreAdded: 0,
         });
@@ -453,13 +442,6 @@ export default function Content(props) {
           best: props.best,
         });
       },
-      onStateChanged: (newState) => {
-        stateManager.setState({
-          best: props.best,
-          score: newState != null ? props.score : 0,
-          game: newState,
-        });
-      },
       state,
     });
     gameRef.current._options.onUpdate(tilesData._tiles);
@@ -471,7 +453,6 @@ export default function Content(props) {
     changeStateFun({
       logoPulse: true,
     });
-    // gameRef.current._options.onUpdate(tilesData);
   };
 
   return (
