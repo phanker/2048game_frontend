@@ -11,7 +11,7 @@ import {
 import { SuiClientOptions, getFullnodeUrl } from "@mysten/sui.js/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@mysten/dapp-kit/dist/index.css";
-
+import { ToastContainer } from "react-toastify";
 // Config options for the networks you want to connect to
 const { networkConfig } = createNetworkConfig({
   localnet: { url: getFullnodeUrl("localnet") },

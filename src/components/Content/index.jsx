@@ -45,8 +45,9 @@ function coverToState(detailInfos) {
 }
 
 const PACKAGE_ID =
-  // "0x64eda0258562329e2eb996d93b16758f200ea406c2bede0949806c5af05c8ea9";
-  "0x1eec93f137f760b5428966571b6c5c109eed4328ece8d86b05ba8294fa390ddb";
+  // "0x64eda0258562329e2eb996d93b16758f200ea406c2bede0949806c5af05c8ea9"; //testnet
+  // "0x1eec93f137f760b5428966571b6c5c109eed4328ece8d86b05ba8294fa390ddb";
+  "0x122e8da7cfa22c01e6ada67ac95e88d517ba6e02a3a19f4f6526a3d301af2810";
 const MODULE_NAME = "game_2048";
 const weather_object_id =
   // "0xa705f6a72f08298c817f16b8e23564a68fc304538c42c9b76af7b85167c1e79c";
@@ -94,6 +95,7 @@ export default function Content(props) {
     },
     {
       enabled: isConnected && gameId != "",
+      refetchInterval: 1000,
     }
   );
 
@@ -143,10 +145,18 @@ export default function Content(props) {
   }, [ownObjectsData]);
 
   const newestGameId = useMemo(() => {
-    if (ownObjectsData?.data && ownObjectsData?.data.length > 0) {
-      return ownObjectsData.data[ownObjectsData.data.length - 1].data.objectId;
-    }
-    return "";
+    // if (ownObjectsData?.data && ownObjectsData?.data.length > 0) {
+    //   return ownObjectsData.data[ownObjectsData.data.length - 1].data.objectId;
+    // }
+
+    const newestObject = ownObjectsData?.data.reduce((max, current) => {
+      return parseInt(max.data.version, 10) > parseInt(current.data.version, 10)
+        ? max
+        : current;
+    });
+    const newestGameId = newestObject?.data.objectId;
+    console.log({ newestGameId });
+    return newestGameId ? newestGameId : "";
   }, [ownObjectsData]);
 
   const tilesData = useMemo(() => {
@@ -154,7 +164,6 @@ export default function Content(props) {
     const isgameOver = objectData?.data.content.fields.isgameOver;
     const score = objectData?.data.content.fields.score;
     const won = objectData?.data.content.fields.won;
-    console.log(objectData?.data.content);
 
     let _tiles = new Array();
     detailInfos?.forEach((innerValue) => {
@@ -183,6 +192,7 @@ export default function Content(props) {
   });
 
   useEffect(() => {
+    console.log({ "tilesData._tiles": tilesData._tiles });
     setTiles(tilesData._tiles);
 
     if (tilesData._tiles && tilesData._tiles.length > 1) {
@@ -208,7 +218,11 @@ export default function Content(props) {
 
     window.addEventListener("keydown", _moveK);
     if (!gameRef.current) {
-      initGame();
+      initGame(true);
+    }
+
+    if (tilesData._tiles && tilesData._tiles.length > 0) {
+      gameRef.current._options.isInitial = false;
     }
     if (tilesData.won) {
       gameRef.current._options.on2048(tilesData.isgameOver);
@@ -216,7 +230,9 @@ export default function Content(props) {
     if (tilesData.isgameOver && !tilesData.won) {
       gameRef.current._options.onGameOver();
     }
-
+    console.log({
+      best: allGamesData && allGamesData.length > 0 ? allGamesData[0].score : 0,
+    });
     gameRef.current._options.onScoreAdd(
       tilesData.score ? tilesData.score : 0,
       allGamesData && allGamesData.length > 0 ? allGamesData[0].score : 0
@@ -256,6 +272,11 @@ export default function Content(props) {
       !event.altKey &&
       !event.metaKey
     ) {
+      if (gameRef.current._options.isInitial) {
+        toast("请创建一局游戏！");
+        return;
+      }
+
       const key = event.key.toLowerCase();
 
       let flag = true;
@@ -308,6 +329,7 @@ export default function Content(props) {
         txb.object(gameId),
         txb.object(weather_object_id),
         txb.pure(direction),
+        txb.object(SUI_CLOCK_OBJECT_ID),
       ],
     });
     txb.setSender(currentAccount?.address);
@@ -321,8 +343,13 @@ export default function Content(props) {
           gameRef.current._options.onUpdate(tilesData._tiles);
         },
         onError(error) {
-          console.log({ error });
-          console.log("失败。");
+          toast(error.message, {
+            autoClose: false,
+            closeOnClick: true,
+            draggable: true,
+          });
+          // console.log({ error });
+          // console.log("失败。");
         },
       }
     );
@@ -339,7 +366,10 @@ export default function Content(props) {
     let txb = new TransactionBlock();
     txb.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::${SEND_FUNCTION_NAME}`,
-      arguments: [txb.object(weather_object_id)],
+      arguments: [
+        txb.object(weather_object_id),
+        txb.object(SUI_CLOCK_OBJECT_ID),
+      ],
     });
     txb.setSender(currentAccount?.address);
     signAndExecuteTransactionBlock(
@@ -386,14 +416,14 @@ export default function Content(props) {
     );
   };
 
-  const initGame = (firstUpdate, state) => {
+  const initGame = (isInitial) => {
     gameRef.current = new Game2048({
       onUpdate: (tiles) => {
         setTiles(tiles);
-        if (!firstUpdate || state == null) {
+        if (!isInitial) {
           vibratorManager.vibrateShort(1);
         }
-        firstUpdate = false;
+        isInitial = false;
       },
       onScoreAdd: (value, best) => {
         changeStateFun({
@@ -442,12 +472,12 @@ export default function Content(props) {
           best: props.best,
         });
       },
-      state,
+      isInitial,
     });
     gameRef.current._options.onUpdate(tilesData._tiles);
   };
 
-  const _createGame = (state = null) => {
+  const _createGame = () => {
     let firstUpdate = true;
     initGame(firstUpdate);
     changeStateFun({
@@ -457,9 +487,6 @@ export default function Content(props) {
 
   return (
     <>
-      <div>
-        <ToastContainer />
-      </div>
       <section className="actions">
         <div className="new-game-wrapper">
           <button className="new-game" onClick={_newGame}>

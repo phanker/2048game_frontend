@@ -6,7 +6,7 @@ import Head from "./components/Head";
 import { useSuiClientQuery, useSuiClientQueries } from "@mysten/dapp-kit";
 
 import Content from "./components/Content";
-
+import { ToastContainer } from "react-toastify";
 export default class App extends Component {
   state = {
     best: 0,
@@ -22,6 +22,9 @@ export default class App extends Component {
   render() {
     return (
       <div className="App">
+        <div>
+          <ToastContainer />
+        </div>
         <Head {...this.state}></Head>
 
         <Content

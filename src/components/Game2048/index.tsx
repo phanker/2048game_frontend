@@ -34,7 +34,7 @@ interface Game2048Options {
   onMaxMerge?: (value: number) => void;
   onGameOver?: () => void;
   on2048?: (gameOver?: boolean) => void;
-  state?: number[] | null;
+  isInitial: boolean;
 }
 
 export default class Game2048 {
