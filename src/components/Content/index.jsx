@@ -29,21 +29,6 @@ import {
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-function coverToState(detailInfos) {
-  let nums = new Array(16);
-  detailInfos.forEach((value, index) => {
-    console.log({ value });
-    const i = value.fields.value.fields.i;
-    console.log({ i });
-    const j = value.fields.value.fields.j;
-    console.log({ j });
-    const v = i * 4 + j * 1;
-    console.log({ v });
-    nums[v] = value.fields.value.fields.value * 1;
-  });
-  return nums;
-}
-
 const PACKAGE_ID =
   // "0x64eda0258562329e2eb996d93b16758f200ea406c2bede0949806c5af05c8ea9"; //testnet
   // "0x1eec93f137f760b5428966571b6c5c109eed4328ece8d86b05ba8294fa390ddb";
@@ -145,15 +130,15 @@ export default function Content(props) {
   }, [ownObjectsData]);
 
   const newestGameId = useMemo(() => {
-    // if (ownObjectsData?.data && ownObjectsData?.data.length > 0) {
-    //   return ownObjectsData.data[ownObjectsData.data.length - 1].data.objectId;
-    // }
-
-    const newestObject = ownObjectsData?.data.reduce((max, current) => {
-      return parseInt(max.data.version, 10) > parseInt(current.data.version, 10)
-        ? max
-        : current;
-    });
+    let newestObject;
+    if (ownObjectsData?.data.length > 0) {
+      newestObject = ownObjectsData?.data?.reduce((max, current) => {
+        return parseInt(max.data.version, 10) >
+          parseInt(current.data.version, 10)
+          ? max
+          : current;
+      });
+    }
     const newestGameId = newestObject?.data.objectId;
     console.log({ newestGameId });
     return newestGameId ? newestGameId : "";
@@ -360,6 +345,13 @@ export default function Content(props) {
       toast("请连接钱包后，创建新游戏!");
       return;
     }
+    if (currentAccount.chains[0] !== "sui:mainnet") {
+      toast("目前只支持sui主网，请将钱包切换至sui主网!");
+      return;
+    }
+
+    console.log({ currentAccount });
+
     if (event != null) {
       event.currentTarget.blur();
     }
